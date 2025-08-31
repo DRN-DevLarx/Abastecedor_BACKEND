@@ -41,7 +41,6 @@ class Producto(models.Model):
 # -------------------------------
 class InformacionUsuario(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)  # Relación 1 a 1
-    identificacion = models.CharField(max_length=20, unique=True)  # Cédula/DNI
     telefono = models.CharField(max_length=20, blank=True, null=True)
     direccion = models.TextField(blank=True, null=True)
 
