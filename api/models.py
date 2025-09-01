@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+from datetime import timedelta
 
 # -------------------------------
 # Categoría de productos
@@ -107,3 +109,23 @@ class DetalleVenta(models.Model):
 
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre}"
+
+class CodigoVerificacion(models.Model):
+    correo = models.EmailField()
+    codigo = models.CharField(max_length=6)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    expiracion = models.DateTimeField()
+    usado = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        # Si no se establece expiración, se fija 5 minutos desde creado
+        if not self.expiracion:
+            self.expiracion = timezone.now() + timedelta(minutes=5)
+        super().save(*args, **kwargs)
+
+    def esta_valido(self):
+        """Devuelve True si el código no ha expirado y no ha sido usado."""
+        return not self.usado and timezone.now() < self.expiracion
+
+    def __str__(self):
+        return f"{self.correo} - {self.codigo}"

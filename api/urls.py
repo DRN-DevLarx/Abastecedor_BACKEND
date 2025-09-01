@@ -37,4 +37,10 @@ urlpatterns = [
     # DetalleVenta
     path('api/detalleVentas/', views.DetalleVentaListCreateView.as_view(), name='detalleventa-list-create'),
     path('api/detalleVentas/<int:pk>/', views.DetalleVentaDetailView.as_view(), name='detalleventa-detail'),
+
+    # Código de verificación
+    path('enviarCodigo/', views.EnviarCodigoGenericoView.as_view(), name='enviar_codigo'),
+    
+    path('validarCodigo/', views.validar_codigo, name='validar_codigo'),
+    # path('registroCompleto/', views.registro_completo, name='registro_completo'),
 ]

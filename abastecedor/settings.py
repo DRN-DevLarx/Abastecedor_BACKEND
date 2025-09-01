@@ -77,6 +77,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
 ]
 
+
 ROOT_URLCONF = 'abastecedor.urls'
 
 TEMPLATES = [
@@ -152,8 +153,14 @@ CORS_ALLOW_CREDENTIALS = True   #permite que las solicitudes cross-origin incluy
 
 CORS_ALLOWED_ORIGINS=[
     "http://localhost:5173",
-    "https://apis.gometa.org",
+    # "https://apis.gometa.org",
+    
 ]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+]
+
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
