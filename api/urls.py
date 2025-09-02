@@ -40,7 +40,6 @@ urlpatterns = [
 
     # Código de verificación
     path('enviarCodigo/', views.EnviarCodigoGenericoView.as_view(), name='enviar_codigo'),
+    path('validarCodigo/', views.ValidarCodigoView.as_view(), name='validar_codigo'),
     
-    path('validarCodigo/', views.validar_codigo, name='validar_codigo'),
-    # path('registroCompleto/', views.registro_completo, name='registro_completo'),
 ]

@@ -3,28 +3,18 @@ from datetime import datetime, timedelta
 from django.core.mail import send_mail
 from django.shortcuts import render, redirect
 from django.contrib import messages
-
+from rest_framework.views import APIView
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
-
-import random
-import string
 from django.utils import timezone
-from rest_framework import viewsets
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-
-from .models import CodigoVerificacion  # Modelo para guardar el código
-
 import random
-from rest_framework import generics
+
 from django.contrib.auth.models import User
 from .models import (
     Categoria, Proveedor, Producto, InformacionUsuario, 
-    Pedido, DetallePedido, Venta, DetalleVenta
+    Pedido, DetallePedido, Venta, DetalleVenta, CodigoVerificacion
 )
 from .serializers import (
     UserSerializer, CategoriaSerializer, ProveedorSerializer, ProductoSerializer,
@@ -181,34 +171,35 @@ class EnviarCodigoGenericoView(generics.GenericAPIView):
 # -------------------------------
 # Validar codigo
 # -------------------------------
-def validar_codigo(request):
-    if request.method == "POST":
-        codigo_usuario = request.POST.get("codigo")
-        codigo_sesion = request.session.get("codigo_verificacion")
-        tiempo_creacion = request.session.get("codigo_creado")
 
-        if not codigo_sesion or not tiempo_creacion:
-            messages.error(request, "No hay ningún código activo. Solicita uno nuevo.")
-            return redirect('enviar_codigo')
+class ValidarCodigoView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
 
-        # Convertir tiempo de creación a objeto datetime
-        tiempo_creacion = datetime.fromisoformat(tiempo_creacion)
-        tiempo_limite = tiempo_creacion + timedelta(minutes=5)
+    def post(self, request, *args, **kwargs):
+        correo = request.data.get("correo")
+        codigo = request.data.get("codigo")
 
-        if datetime.now() > tiempo_limite:
-            # Código expiró
-            del request.session['codigo_verificacion']
-            del request.session['codigo_creado']
-            messages.error(request, "El código ha caducado. Solicita uno nuevo.")
-            return redirect('enviar_codigo')
+        print("correo", correo)
+        print("codigo", codigo)
+        
+        if not correo or not codigo:
+            return Response({"error": "Correo y código son obligatorios"}, status=400)
 
-        if codigo_usuario == codigo_sesion:
-            # Código válido, eliminar de sesión para que no pueda usarse de nuevo
-            del request.session['codigo_verificacion']
-            del request.session['codigo_creado']
-            messages.success(request, "Código correcto. ¡Correo verificado!")
-            return redirect("registro_completo")
-        else:
-            messages.error(request, "Código incorrecto, intenta de nuevo.")
+        try:
+            codigo_obj = CodigoVerificacion.objects.filter(
+                correo=correo, codigo=codigo, usado=False
+            ).latest("creado_en")
 
-    return render(request, "ingresar_codigo.html")
+        except CodigoVerificacion.DoesNotExist:
+            return Response({"error": "Código inválido"}, status=404)
+
+        # Verificar expiración
+        if timezone.now() > codigo_obj.expiracion:
+            return Response({"error": "El código ha expirado"}, status=400)
+
+        # Marcar como usado
+        codigo_obj.usado = True
+        codigo_obj.save()
+
+        return Response({"mensaje": "Código válido"}, status=200)
+
