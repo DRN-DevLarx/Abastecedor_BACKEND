@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, Group
 from .models import (
     Categoria, Proveedor, Producto, InformacionUsuario, 
     Pedido, DetallePedido, Venta, DetalleVenta
@@ -9,25 +9,66 @@ from .models import (
 # User Serializer
 # -------------------------------
 class UserSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name']
+        fields = "__all__"
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        user = User.objects.create_user(**validated_data)
+        return user
+    
+    def update(self, instance, validated_data):
+        try:
+            password = validated_data.pop('password', None)
+            
+            for attr, value in validated_data.items() :
+                setattr(instance, attr, value)
+                
+            if password :
+                instance.set_password(password)
+            instance.save()
+            return instance
+        
+        except Exception as e:
+            print(f"Error al actualizar usuario: {e}") 
+            raise serializers.ValidationError({"error": "No se pudo actualizar el usuario."})
+
+# -------------------------------
+# Assign Group Serializer
+# -------------------------------
+class AsignarGrupoSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    group_id = serializers.IntegerField()
+
+    def validate(self, data):
+        try:
+            data['user'] = User.objects.get(id=data['user_id'])
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Usuario no existe")
+
+        try:
+            data['group'] = Group.objects.get(id=data['group_id'])
+        except Group.DoesNotExist:
+            raise serializers.ValidationError("Grupo no existe")
+
+        return data
+
+    def save(self):
+        user = self.validated_data['user']
+        group = self.validated_data['group']
+        user.groups.add(group)  # agrega sin eliminar otros grupos
+        return user
 
 # -------------------------------
 # InformacionUsuario Serializer
 # -------------------------------
 class InformacionUsuarioSerializer(serializers.ModelSerializer):
-    user = UserSerializer()
 
     class Meta:
         model = InformacionUsuario
-        fields = ['id', 'user', 'identificacion', 'telefono', 'direccion']
-
-    def create(self, validated_data):
-        user_data = validated_data.pop('user')
-        user = User.objects.create(**user_data)
-        info_usuario = InformacionUsuario.objects.create(user=user, **validated_data)
-        return info_usuario
+        fields = ['id', 'user', 'telefono', 'direccion']
 
 # -------------------------------
 # Categoría y Proveedor

@@ -17,14 +17,16 @@ from .models import (
     Pedido, DetallePedido, Venta, DetalleVenta, CodigoVerificacion
 )
 from .serializers import (
-    UserSerializer, CategoriaSerializer, ProveedorSerializer, ProductoSerializer,
-    InformacionUsuarioSerializer, PedidoSerializer, DetallePedidoSerializer,
-    VentaSerializer, DetalleVentaSerializer
+    UserSerializer, InformacionUsuarioSerializer, AsignarGrupoSerializer, CategoriaSerializer, 
+    ProveedorSerializer, ProductoSerializer, PedidoSerializer, DetallePedidoSerializer, VentaSerializer, 
+    DetalleVentaSerializer
 )
 # -------------------------------
 # User
 # -------------------------------
 class UserListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
@@ -36,12 +38,27 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
 # InformacionUsuario
 # -------------------------------
 class InformacionUsuarioListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+
     queryset = InformacionUsuario.objects.all()
     serializer_class = InformacionUsuarioSerializer
 
 class InformacionUsuarioDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = InformacionUsuario.objects.all()
     serializer_class = InformacionUsuarioSerializer
+
+# -------------------------------
+# AsignarGrupo
+# -------------------------------
+class AsignarGrupoView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = AsignarGrupoSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response({"message": f"Grupo asignado a {user.username}"}, status=status.HTTP_200_OK)
 
 # -------------------------------
 # Categoria
@@ -178,9 +195,6 @@ class ValidarCodigoView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         correo = request.data.get("correo")
         codigo = request.data.get("codigo")
-
-        print("correo", correo)
-        print("codigo", codigo)
         
         if not correo or not codigo:
             return Response({"error": "Correo y código son obligatorios"}, status=400)
