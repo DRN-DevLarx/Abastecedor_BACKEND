@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User, Group
 from .models import (
     Categoria, Proveedor, Producto, InformacionUsuario, 
-    Pedido, DetallePedido, Venta, DetalleVenta
+    Pedido, DetallePedido, Venta, DetalleVenta, RegistroTemporal
 )
 
 # -------------------------------
@@ -119,4 +119,14 @@ class VentaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Venta
+        fields = '__all__'
+
+
+# -------------------------------
+# Datos de Registro temporal
+# -------------------------------
+class RegistroTemporalSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = RegistroTemporal
         fields = '__all__'

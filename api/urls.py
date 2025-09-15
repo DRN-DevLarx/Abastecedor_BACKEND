@@ -40,8 +40,13 @@ urlpatterns = [
     path('detalleVentas/', views.DetalleVentaListCreateView.as_view(), name='detalleventa-list-create'),
     path('detalleVentas/<int:pk>/', views.DetalleVentaDetailView.as_view(), name='detalleventa-detail'),
 
+    # RegistroTemporal
+    path('registroTemporal/', views.RegistroTemporalListCreateView.as_view(), name='detalleventa-list-create'),
+    path('registroTemporal/<int:pk>/', views.RegistroTemporalDetailView.as_view(), name='registroTemporal-detail'),
+
     # Código de verificación
     path('enviarCodigo/', views.EnviarCodigoGenericoView.as_view(), name='enviar_codigo'),
+    path('reenviarCodigo/', views.ReenviarCodigoView.as_view(), name='reenviar_codigo'),
     path('validarCodigo/', views.ValidarCodigoView.as_view(), name='validar_codigo'),
     
 ]

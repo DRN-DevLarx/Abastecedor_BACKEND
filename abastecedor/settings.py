@@ -65,6 +65,10 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SAMESITE': 'Lax',  #Se establece en 'Lax', lo que significa que la cookie solo se enviará en solicitudes de primer nivel o navegación. Previene ataques CSRF sin bloquear completamente los enlaces de terceros.z
 }
 
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_NAME = "sessionid"
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

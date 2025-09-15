@@ -1,6 +1,6 @@
 # Envio de codigo al correoimport random
 from datetime import datetime, timedelta
-from django.core.mail import send_mail
+from django.core.mail import send_mail, BadHeaderError
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from rest_framework.views import APIView
@@ -9,17 +9,18 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.utils.crypto import get_random_string
 from django.utils import timezone
-import random
+import smtplib
+from django.utils.http import http_date
 
 from django.contrib.auth.models import User
 from .models import (
     Categoria, Proveedor, Producto, InformacionUsuario, 
-    Pedido, DetallePedido, Venta, DetalleVenta, CodigoVerificacion
+    Pedido, DetallePedido, Venta, DetalleVenta, CodigoVerificacion, RegistroTemporal
 )
 from .serializers import (
     UserSerializer, InformacionUsuarioSerializer, AsignarGrupoSerializer, CategoriaSerializer, 
     ProveedorSerializer, ProductoSerializer, PedidoSerializer, DetallePedidoSerializer, VentaSerializer, 
-    DetalleVentaSerializer
+    DetalleVentaSerializer, RegistroTemporalSerializer
 )
 # -------------------------------
 # User
@@ -137,83 +138,250 @@ class DetalleVentaDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = DetalleVenta.objects.all()
     serializer_class = DetalleVentaSerializer
 
+
+# -------------------------------
+# Registro temporal
+# -------------------------------
+class RegistroTemporalListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+    queryset = RegistroTemporal.objects.all()
+    serializer_class = RegistroTemporalSerializer
+
+class RegistroTemporalDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = RegistroTemporal.objects.all()
+    serializer_class = RegistroTemporalSerializer
+
 # -------------------------------
 # Código de verificacion
 # -------------------------------
-
 class EnviarCodigoGenericoView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        
-        email = request.data.get("correo")
+        # Obtener datos del frontend
         nombre = request.data.get("nombre")
+        apellido = request.data.get("apellido")
+        username = request.data.get("username")
+        phone = request.data.get("telefono")
+        email = request.data.get("correo")
 
-        if not email:
-            return Response({'error': 'Correo es obligatorio'}, status=status.HTTP_400_BAD_REQUEST)
+        # Validar campos obligatorios
+        if not email or not nombre or not username:
+            return Response(
+                {'error': 'Nombre, correo y username son obligatorios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Generar código de 6 dígitos
-        codigo = get_random_string(length=6, allowed_chars='0123456789')
-
-        # Guardar código en la base de datos con expiración de 5 minutos
-        CodigoVerificacion.objects.create(
-            correo=email,
-            codigo=codigo,
-            expiracion=timezone.now() + timedelta(minutes=5)
+        # Guardar o actualizar registro temporal
+        registro_temp, _ = RegistroTemporal.objects.update_or_create(
+            email=email,
+            defaults={
+                "nombre": nombre,
+                "apellido": apellido,
+                "username": username,
+                "phone": phone
+            }
         )
-        
-        # Enviar el correo
+
+        # Obtener o crear registro de código
+        registro, creado = CodigoVerificacion.objects.get_or_create(
+            correo=email,
+            defaults={
+                "codigo": "",
+                "expiracion": timezone.now(),
+                "intentos": 0,
+                "proximo_reenvio": timezone.now()
+            }
+        )
+
+        # Verificar cooldown
+        if timezone.now() < registro.proximo_reenvio:
+            segundos_restantes = int((registro.proximo_reenvio - timezone.now()).total_seconds())
+            return Response(
+                {"error": f"Debes esperar {segundos_restantes} segundos antes de reenviar.",
+                 "wait_time": segundos_restantes},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+
+        # Generar nuevo código
+        codigo = get_random_string(length=6, allowed_chars="0123456789")
+        registro.codigo = codigo
+        registro.expiracion = timezone.now() + timedelta(minutes=5)
+        registro.usado = False
+        registro.intentos += 1
+
+        # Cooldown progresivo (30s, 60s, 90s..., máximo 300s)
+        wait_time = min(registro.intentos * 30, 300)
+        registro.proximo_reenvio = timezone.now() + timedelta(seconds=wait_time)
+        registro.save()
+
+        # Enviar correo
         asunto = "Tu código de verificación"
         cuerpo = f"""
         Hola {nombre},
 
         Tu código de verificación es: {codigo}
-        Este código caduca en 5 minutos y solo puede ser usado una vez.
+        Este código caduca en 5 minutos y solo puede usarse una vez.
 
         Saludos,
         Equipo de soporte
         """.strip()
 
-        send_mail(
-            subject=asunto,
-            message=cuerpo,
-            from_email=None,  # Usará DEFAULT_FROM_EMAIL
-            recipient_list=[email],
-            fail_silently=False
+        try:
+            send_mail(
+                subject=asunto,
+                message=cuerpo,
+                from_email=None,  # usa DEFAULT_FROM_EMAIL
+                recipient_list=[email],
+                fail_silently=False
+            )
+        except Exception:
+            return Response({'error': 'No se pudo enviar el correo'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Respuesta final
+        response = Response()
+
+        response.data = {
+            "mensaje": f"Correo enviado.",
+            "wait_time": wait_time
+        }
+
+        return response
+
+
+# -------------------------------
+# Reenviar codigo
+# -------------------------------
+
+class ReenviarCodigoView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get("correo")
+        nombre = request.data.get("nombre")
+
+        if not email or not nombre:
+            return Response(
+                {"error": "Correo y nombre son obligatorios."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Buscar el registro de verificación o crearlo si no existe
+        registro, _ = CodigoVerificacion.objects.get_or_create(
+            correo=email,
+            defaults={
+                "codigo": "",
+                "expiracion": timezone.now(),
+                "intentos": 0,
+                "proximo_reenvio": timezone.now()
+            }
         )
 
-        return Response({'mensaje': 'Correo enviado con el código'}, status=status.HTTP_200_OK)
+        # Verificar si ya debe esperar antes de reenviar
+        if timezone.now() < registro.proximo_reenvio:
+            segundos_restantes = int((registro.proximo_reenvio - timezone.now()).total_seconds())
+
+            return Response(
+                {
+                    "error": f"Debes esperar {segundos_restantes} segundos antes de reenviar.",
+                    "wait_time": segundos_restantes
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+
+        # Generar nuevo código
+        codigo = get_random_string(length=6, allowed_chars="0123456789")
+        registro.codigo = codigo
+        registro.expiracion = timezone.now() + timedelta(minutes=5)
+        registro.usado = False
+        registro.intentos += 1
+
+        # Tiempo de espera incremental (30s, 60s, ..., máx 300s)
+        wait_time = min(registro.intentos * 30, 300)
+        registro.proximo_reenvio = timezone.now() + timedelta(seconds=wait_time)
+        registro.save()
+
+        # Enviar el correo con el nuevo código
+        asunto = "Tu nuevo código de verificación"
+        cuerpo = f"""
+        Hola {nombre},
+
+        Tu nuevo código de verificación es: {codigo}
+        Este código caduca en 5 minutos y solo puede usarse una vez.
+
+        Saludos,
+        Equipo de soporte
+        """.strip()
+
+        try:
+            send_mail(
+                subject=asunto,
+                message=cuerpo,
+                from_email=None,  # Usa DEFAULT_FROM_EMAIL
+                recipient_list=[email],
+                fail_silently=False
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"No se pudo enviar el correo: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {
+                "mensaje": "Código reenviado correctamente.",
+                "wait_time": wait_time
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 # -------------------------------
 # Validar codigo
 # -------------------------------
 
-class ValidarCodigoView(generics.GenericAPIView):
+class ValidarCodigoView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
         correo = request.data.get("correo")
         codigo = request.data.get("codigo")
-        
+
         if not correo or not codigo:
-            return Response({"error": "Correo y código son obligatorios"}, status=400)
+            return Response(
+                {"error": "Correo y código son obligatorios."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        # Buscar el último registro con ese correo, código y no usado
         try:
-            codigo_obj = CodigoVerificacion.objects.filter(
-                correo=correo, codigo=codigo, usado=False
+            registro = CodigoVerificacion.objects.filter(
+                correo=correo,
+                codigo=codigo,
+                usado=False
             ).latest("creado_en")
-
         except CodigoVerificacion.DoesNotExist:
-            return Response({"error": "Código inválido"}, status=404)
+            return Response(
+                {"error": "Código incorrecto o ya fue utilizado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Verificar expiración
-        if timezone.now() > codigo_obj.expiracion:
-            return Response({"error": "El código ha expirado"}, status=400)
+        if timezone.now() > registro.expiracion:
+            return Response(
+                {"error": "El código ha expirado."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Marcar como usado
-        codigo_obj.usado = True
-        codigo_obj.save()
+        registro.usado = True
+        registro.save()
 
-        return Response({"mensaje": "Código válido"}, status=200)
+        return Response(
+            {
+                "mensaje": "Código validado correctamente.",
+                "correo": registro.correo  # confirmamos el correo desde el modelo
+            },
+            status=status.HTTP_200_OK
+        )
 

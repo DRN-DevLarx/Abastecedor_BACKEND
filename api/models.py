@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
+import uuid
+
 
 # -------------------------------
 # Categoría de productos
@@ -110,22 +112,29 @@ class DetalleVenta(models.Model):
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre}"
 
+# -------------------------------
+# Codigo de Verificacion
+# -------------------------------
 class CodigoVerificacion(models.Model):
     correo = models.EmailField()
     codigo = models.CharField(max_length=6)
-    creado_en = models.DateTimeField(auto_now_add=True)
-    expiracion = models.DateTimeField()
-    usado = models.BooleanField(default=False)
-
-    def save(self, *args, **kwargs):
-        # Si no se establece expiración, se fija 5 minutos desde creado
-        if not self.expiracion:
-            self.expiracion = timezone.now() + timedelta(minutes=5)
-        super().save(*args, **kwargs)
-
-    def esta_valido(self):
-        """Devuelve True si el código no ha expirado y no ha sido usado."""
-        return not self.usado and timezone.now() < self.expiracion
+    creado_en = models.DateTimeField(auto_now_add=True)   
+    expiracion = models.DateTimeField()                   
+    usado = models.BooleanField(default=False)            
+    intentos = models.IntegerField(default=0)             
+    proximo_reenvio = models.DateTimeField(default=timezone.now) 
 
     def __str__(self):
-        return f"{self.correo} - {self.codigo}"
+        return f"{self.correo} - {self.codigo} ({'usado' if self.usado else 'activo'})"
+
+
+class RegistroTemporal(models.Model):
+    email = models.EmailField(unique=True)
+    nombre = models.CharField(max_length=100)
+    apellido = models.CharField(max_length=100, blank=True, null=True)
+    username = models.CharField(max_length=100)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    creado = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.email} - {self.username}"
