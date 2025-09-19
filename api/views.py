@@ -1,26 +1,26 @@
 # Envio de codigo al correoimport random
 from datetime import datetime, timedelta
-from django.core.mail import send_mail, BadHeaderError
-from django.shortcuts import render, redirect
-from django.contrib import messages
+from django.core.mail import send_mail
 from rest_framework.views import APIView
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.utils.crypto import get_random_string
 from django.utils import timezone
-import smtplib
-from django.utils.http import http_date
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from django.contrib.auth.models import User
+from .permission import IsAuthenticatedAllowInactive
+from .authentication import JWTAllowInactiveAuthentication
+
+from django.contrib.auth.models import User, Group
 from .models import (
-    Categoria, Proveedor, Producto, InformacionUsuario, 
+    Categoria, Proveedor, Consultas, Producto, InformacionUsuario, 
     Pedido, DetallePedido, Venta, DetalleVenta, CodigoVerificacion, RegistroTemporal
 )
 from .serializers import (
-    UserSerializer, InformacionUsuarioSerializer, AsignarGrupoSerializer, CategoriaSerializer, 
-    ProveedorSerializer, ProductoSerializer, PedidoSerializer, DetallePedidoSerializer, VentaSerializer, 
-    DetalleVentaSerializer, RegistroTemporalSerializer
+    UserSerializer, InformacionUsuarioSerializer, AsignarGrupoSerializer, GruposSerializer, CategoriaSerializer, 
+    ProveedorSerializer, ConsultasSerializer, ProductoSerializer, PedidoSerializer, DetallePedidoSerializer, VentaSerializer, 
+    DetalleVentaSerializer, RegistroTemporalSerializer, CustomTokenObtainPairSerializer
 )
 # -------------------------------
 # User
@@ -32,6 +32,8 @@ class UserListCreateView(generics.ListCreateAPIView):
     serializer_class = UserSerializer
 
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+    
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
@@ -62,6 +64,21 @@ class AsignarGrupoView(generics.GenericAPIView):
         return Response({"message": f"Grupo asignado a {user.username}"}, status=status.HTTP_200_OK)
 
 # -------------------------------
+# Grupos
+# -------------------------------
+class GruposListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+
+    queryset = Group.objects.all()
+    serializer_class = GruposSerializer
+
+# class GruposDetailView(generics.RetrieveUpdateDestroyAPIView):
+#     permission_classes = [AllowAny]
+    
+#     queryset = Group.objects.all()
+#     serializer_class = GruposSerializer
+
+# -------------------------------
 # Categoria
 # -------------------------------
 class CategoriaListCreateView(generics.ListCreateAPIView):
@@ -82,6 +99,21 @@ class ProveedorListCreateView(generics.ListCreateAPIView):
 class ProveedorDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Proveedor.objects.all()
     serializer_class = ProveedorSerializer
+
+# -------------------------------
+# Consultas
+# -------------------------------
+class ConsultasListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny] 
+    
+    queryset = Consultas.objects.all()
+    serializer_class = ConsultasSerializer
+
+class ConsultasDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+
+    queryset = Consultas.objects.all()
+    serializer_class = ConsultasSerializer
 
 # -------------------------------
 # Producto
@@ -248,11 +280,9 @@ class EnviarCodigoGenericoView(generics.GenericAPIView):
 
         return response
 
-
 # -------------------------------
 # Reenviar codigo
 # -------------------------------
-
 class ReenviarCodigoView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
@@ -335,12 +365,10 @@ class ReenviarCodigoView(generics.GenericAPIView):
             status=status.HTTP_200_OK
         )
 
-
 # -------------------------------
 # Validar codigo
 # -------------------------------
-
-class ValidarCodigoView(APIView):
+class ValidarCodigoView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
@@ -385,3 +413,156 @@ class ValidarCodigoView(APIView):
             status=status.HTTP_200_OK
         )
 
+# -------------------------------
+# Vista del access_token
+# -------------------------------
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        serializer = CustomTokenObtainPairSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserDataView(APIView):
+    authentication_classes = [JWTAllowInactiveAuthentication]
+    permission_classes = [IsAuthenticatedAllowInactive]
+
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+
+# -------------------------------
+# Enviar contraseña temporal
+# -------------------------------
+class EnviarClaveTemporalView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get("correo")
+
+        if not email:
+            return Response({'error': 'El correo electrónico es obligatorio.'}, status=400)
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'error': 'No existe un usuario con ese correo electrónico.'}, status=404)
+
+        # Generar clave temporal (8 caracteres alfanuméricos)
+        clave_temporal = get_random_string(length=8)
+
+        # Guardar nueva clave y desactivar usuario
+        user.set_password(clave_temporal)
+        user.is_active = False
+        user.save()
+
+        # Enviar el correo
+        asunto = "Tu contraseña temporal"
+        cuerpo = f"""
+        Hola {user.first_name},
+
+        Se ha solicitado el restablecimiento de tu contraseña.
+
+        Tu username es: {user.username}
+        Tu nueva contraseña temporal es: {clave_temporal}
+
+        Por seguridad, tu cuenta ha sido desactivada temporalmente. 
+        Actívala iniciando sesión con esta contraseña y actualizando tu contraseña.
+
+        Saludos,
+        El equipo de soporte
+        """.strip()
+
+        send_mail(
+            subject=asunto,
+            message=cuerpo,
+            from_email=None,
+            recipient_list=[email],
+            fail_silently=False
+        )
+
+        return Response({'mensaje': 'Correo enviado con la contraseña temporal.'}, status=200)
+
+# -------------------------------
+# Enviar codigo para cambio de correo
+# -------------------------------
+class EnviarCodigoCambioCorreoView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        # Obtener datos del frontend
+        name = request.data.get("name")
+        email = request.data.get("correo")
+
+        # Validar campos obligatorios
+        if not email or not name:
+            return Response(
+                {'error': 'Correo y el nombre son obligatorios.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Obtener o crear registro de código
+        registro, creado = CodigoVerificacion.objects.get_or_create(
+            correo=email,
+            defaults={
+                "codigo": "",
+                "expiracion": timezone.now(),
+                "intentos": 0,
+                "proximo_reenvio": timezone.now()
+            }
+        )
+
+        # Verificar cooldown
+        if timezone.now() < registro.proximo_reenvio:
+            segundos_restantes = int((registro.proximo_reenvio - timezone.now()).total_seconds())
+            return Response(
+                {"error": f"Debes esperar {segundos_restantes} segundos antes de reenviar.",
+                 "wait_time": segundos_restantes},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+
+        # Generar nuevo código
+        codigo = get_random_string(length=6, allowed_chars="0123456789")
+        registro.codigo = codigo
+        registro.expiracion = timezone.now() + timedelta(minutes=5)
+        registro.usado = False
+        registro.intentos += 1
+
+        # Cooldown progresivo (30s, 60s, 90s..., máximo 300s)
+        wait_time = min(registro.intentos * 30, 300)
+        registro.proximo_reenvio = timezone.now() + timedelta(seconds=wait_time)
+        registro.save()
+
+        # Enviar correo
+        asunto = "Cambio de correo electrónico"
+        cuerpo = f"""
+        Hola {name},
+
+        Estás cambiando tu correo electrónico.
+        Tu código de verificación es: {codigo}
+        Este código caduca en 5 minutos y solo puede usarse una vez.
+
+        Saludos,
+        Equipo de soporte
+                """.strip()
+
+        try:
+            send_mail(
+                subject=asunto,
+                message=cuerpo,
+                from_email=None,  # usa DEFAULT_FROM_EMAIL
+                recipient_list=[email],
+                fail_silently=False
+            )
+        except Exception:
+            return Response({'error': 'No se pudo enviar el correo'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Respuesta final
+        return Response({
+            "mensaje": f"Correo enviado para cambiar la cuenta de {name}.",
+            "wait_time": wait_time
+        })

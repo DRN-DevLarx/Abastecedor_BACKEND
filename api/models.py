@@ -26,6 +26,18 @@ class Proveedor(models.Model):
         return self.nombre
 
 # -------------------------------
+# Consultas
+# -------------------------------
+class Consultas(models.Model):
+    nombre_completo = models.CharField(max_length=50)
+    correo = models.CharField(max_length=100)
+    asunto = models.CharField(max_length=50,)
+    mensaje = models.TextField()
+
+    def __str__(self):
+        return self.mensaje
+
+# -------------------------------
 # Producto
 # -------------------------------
 class Producto(models.Model):
@@ -47,6 +59,9 @@ class InformacionUsuario(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Relación 1 a 1
     telefono = models.CharField(max_length=20, blank=True, null=True)
     direccion = models.TextField(blank=True, null=True)
+    referenciaIMG = models.TextField(blank=True, null=True)
+    notificaciones = models.CharField(default="false", max_length=10)
+    tema = models.CharField(default="normal", max_length=10)
 
     def __str__(self):
         return f"{self.user} - {self.telefono}"
@@ -62,7 +77,7 @@ class Pedido(models.Model):
         ("cancelado", "Cancelado"),
     ]
 
-    cliente = models.ForeignKey(InformacionUsuario, on_delete=models.CASCADE)
+    cliente = models.ForeignKey(User, on_delete=models.CASCADE)
     fecha = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
 

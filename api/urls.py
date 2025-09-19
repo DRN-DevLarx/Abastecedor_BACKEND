@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from rest_framework_simplejwt.views import( TokenRefreshView)
 
 urlpatterns = [
     # User
@@ -10,7 +11,11 @@ urlpatterns = [
     path('informacionUsuarios/', views.InformacionUsuarioListCreateView.as_view(), name='informacionusuario-list-create'),
     path('informacionUsuarios/<int:pk>/', views.InformacionUsuarioDetailView.as_view(), name='informacionusuario-detail'),
 
+    #Asignar grupo
     path('asignarGrupo/', views.AsignarGrupoView.as_view(), name='asignargrupo'),
+
+    #Grupos
+    path('grupos/', views.GruposListCreateView.as_view(), name='grupo-list-create'),
 
     # Categoria
     path('categorias/', views.CategoriaListCreateView.as_view(), name='categoria-list-create'),
@@ -19,6 +24,10 @@ urlpatterns = [
     # Proveedor
     path('proveedores/', views.ProveedorListCreateView.as_view(), name='proveedor-list-create'),
     path('proveedores/<int:pk>/', views.ProveedorDetailView.as_view(), name='proveedor-detail'),
+
+    # Consultas
+    path('consultas/', views.ConsultasListCreateView.as_view(), name='consulta-list-create'),
+    path('consultas/<int:pk>/', views.ConsultasDetailView.as_view(), name='consulta-detail'),
 
     # Producto
     path('productos/', views.ProductoListCreateView.as_view(), name='producto-list-create'),
@@ -48,5 +57,10 @@ urlpatterns = [
     path('enviarCodigo/', views.EnviarCodigoGenericoView.as_view(), name='enviar_codigo'),
     path('reenviarCodigo/', views.ReenviarCodigoView.as_view(), name='reenviar_codigo'),
     path('validarCodigo/', views.ValidarCodigoView.as_view(), name='validar_codigo'),
+    path('restablecer/', views.EnviarClaveTemporalView.as_view(), name='restablecer'),
+    path('VcambioCorreo/', views.EnviarCodigoCambioCorreoView.as_view(), name='VcambioCorreo'),
     
+    path('token/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path("user-data/", views.UserDataView.as_view(), name="user-data"),
 ]

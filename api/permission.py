@@ -1,13 +1,8 @@
 from rest_framework.permissions import BasePermission
 
-class IsAdminUserGroup(BasePermission):
+class IsAuthenticatedAllowInactive(BasePermission):
+    """
+    Permite el acceso a cualquier usuario autenticado, incluso si is_active=False
+    """
     def has_permission(self, request, view):
-        return request.user and request.user.groups.filter(name="admin").exists()
-
-class IsEmpresaUser(BasePermission):
-    def has_permission(self, request, view):
-        return request.user and request.user.groups.filter(name="empresa").exists()
-
-class IsUsuarioUser(BasePermission):
-    def has_permission(self, request, view):
-        return request.user and request.user.groups.filter(name="oferente").exists()
+        return request.user and request.user.is_authenticated

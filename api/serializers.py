@@ -1,7 +1,9 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from django.contrib.auth.models import User, Group
 from .models import (
-    Categoria, Proveedor, Producto, InformacionUsuario, 
+    Categoria, Proveedor, Consultas, Producto, InformacionUsuario, 
     Pedido, DetallePedido, Venta, DetalleVenta, RegistroTemporal
 )
 
@@ -62,13 +64,20 @@ class AsignarGrupoSerializer(serializers.Serializer):
         return user
 
 # -------------------------------
+# Groups Serializer
+# -------------------------------
+class GruposSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = '__all__'
+
+# -------------------------------
 # InformacionUsuario Serializer
 # -------------------------------
 class InformacionUsuarioSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = InformacionUsuario
-        fields = ['id', 'user', 'telefono', 'direccion']
+        fields = '__all__'
 
 # -------------------------------
 # Categoría y Proveedor
@@ -81,6 +90,15 @@ class CategoriaSerializer(serializers.ModelSerializer):
 class ProveedorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Proveedor
+        fields = '__all__'
+
+
+# -------------------------------
+# Consultas
+# -------------------------------
+class ConsultasSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Consultas
         fields = '__all__'
 
 # -------------------------------
@@ -130,3 +148,48 @@ class RegistroTemporalSerializer(serializers.ModelSerializer):
     class Meta:
         model = RegistroTemporal
         fields = '__all__'
+
+# -------------------------------
+# Access_token (Inicio de sesion)
+# -------------------------------
+
+class CustomTokenObtainPairSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        username = attrs.get("username")
+        password = attrs.get("password")
+
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({
+                "error_code": "invalid_credentials",
+                "message": "Credenciales incorrectas."
+            })
+
+        if not user.check_password(password):
+            raise serializers.ValidationError({
+                "error_code": "invalid_credentials",
+                "message": "Credenciales incorrectas."
+            })
+
+        # Crear el token
+        refresh = RefreshToken.for_user(user)
+        access_token = refresh.access_token
+
+        # Agregar campos personalizados al access token
+        groups = user.groups.values_list('name', flat=True)
+
+        access_token['role'] = groups[0] if groups else None
+        access_token['user_id'] = user.id
+        access_token['is_active'] = user.is_active
+        
+        return {
+            'access': str(access_token),
+            'refresh': str(refresh),
+            'user_id': user.id,
+            'role': groups[0] if groups else None,
+            'is_active': user.is_active
+        }
