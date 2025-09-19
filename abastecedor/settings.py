@@ -57,7 +57,7 @@ DEFAULT_AUTHENTICATION_CLASSES = [
 ]
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=300),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_COOKIE': 'jwt_token',    #Nombre de la cookie que almacenará el JWT.
     'AUTH_COOKIE_SECURE': False,    #Si está en False, la cookie se enviará incluso en conexiones no seguras (HTTP). Debería estar en True en producción.
