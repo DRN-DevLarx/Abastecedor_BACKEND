@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 from django.contrib.auth.models import User, Group
 from .models import (
-    Categoria, Proveedor, Consultas, Producto, InformacionUsuario, 
+    Categoria, Proveedor, Consultas, Producto, InformacionUsuario, ImagenesUsuario,
     Pedido, DetallePedido, Venta, DetalleVenta, RegistroTemporal
 )
 
@@ -38,7 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"error": "No se pudo actualizar el usuario."})
 
 # -------------------------------
-# Assign Group Serializer
+# Serializer de asignar relacion grupo usuario
 # -------------------------------
 class AsignarGrupoSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
@@ -64,6 +64,31 @@ class AsignarGrupoSerializer(serializers.Serializer):
         return user
 
 # -------------------------------
+# Serializer de eliminar relacion grupo usuario
+# -------------------------------
+class EliminarUsuarioSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+
+    def validate(self, data):
+        try:
+            data['user'] = User.objects.get(id=data['ID'])
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Usuario no existe")
+        return data
+
+    def save(self):
+        user = self.validated_data['user']
+        
+        # 1. Eliminar relaciones con grupos
+        user.groups.clear()
+        
+        # 2. Eliminar usuario (con CASCADE se borran sus datos en InformacionUsuario)
+        username = user.username  # guardamos el nombre para mostrar en la respuesta
+        user.delete()
+        
+        return username
+
+# -------------------------------
 # Groups Serializer
 # -------------------------------
 class GruposSerializer(serializers.ModelSerializer):
@@ -77,6 +102,14 @@ class GruposSerializer(serializers.ModelSerializer):
 class InformacionUsuarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = InformacionUsuario
+        fields = '__all__'
+
+# -------------------------------
+# Imagenes de usuario
+# -------------------------------
+class ImagenesUsuarioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImagenesUsuario
         fields = '__all__'
 
 # -------------------------------
@@ -182,14 +215,45 @@ class CustomTokenObtainPairSerializer(serializers.Serializer):
         # Agregar campos personalizados al access token
         groups = user.groups.values_list('name', flat=True)
 
-        access_token['role'] = groups[0] if groups else None
         access_token['user_id'] = user.id
+        access_token['username'] = user.username
+        access_token['role'] = groups[0] if groups else None
+        access_token['is_superuser'] = user.is_superuser
         access_token['is_active'] = user.is_active
         
         return {
             'access': str(access_token),
-            'refresh': str(refresh),
-            'user_id': user.id,
-            'role': groups[0] if groups else None,
-            'is_active': user.is_active
+            'refresh': str(refresh)
         }
+
+class CustomTokenRefreshSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+    def validate(self, attrs):
+        refresh_token = attrs.get("refresh")
+
+        try:
+            # Validar el refresh token
+            refresh = RefreshToken(refresh_token)
+            user_id = refresh["user_id"]
+            user = User.objects.get(id=user_id)
+
+            # Crear un nuevo access token
+            access_token = refresh.access_token
+
+            # Agregar campos personalizados
+            groups = user.groups.values_list('name', flat=True)
+            access_token["user_id"] = user.id
+            access_token["username"] = user.username
+            access_token["role"] = groups[0] if groups else None
+            access_token["is_superuser"] = user.is_superuser
+            access_token["is_active"] = user.is_active
+
+            return {
+                "access": str(access_token)
+            }
+
+        except TokenError:
+            raise serializers.ValidationError({"error": "Refresh token inválido o expirado"})
+        except User.DoesNotExist:
+            raise serializers.ValidationError({"error": "Usuario no encontrado"})

@@ -14,14 +14,15 @@ from .authentication import JWTAllowInactiveAuthentication
 
 from django.contrib.auth.models import User, Group
 from .models import (
-    Categoria, Proveedor, Consultas, Producto, InformacionUsuario, 
+    Categoria, Proveedor, Consultas, Producto, InformacionUsuario, ImagenesUsuario,
     Pedido, DetallePedido, Venta, DetalleVenta, CodigoVerificacion, RegistroTemporal
 )
 from .serializers import (
-    UserSerializer, InformacionUsuarioSerializer, AsignarGrupoSerializer, GruposSerializer, CategoriaSerializer, 
+    UserSerializer, InformacionUsuarioSerializer, ImagenesUsuarioSerializer, AsignarGrupoSerializer, EliminarUsuarioSerializer, GruposSerializer, CategoriaSerializer, 
     ProveedorSerializer, ConsultasSerializer, ProductoSerializer, PedidoSerializer, DetallePedidoSerializer, VentaSerializer, 
-    DetalleVentaSerializer, RegistroTemporalSerializer, CustomTokenObtainPairSerializer
+    DetalleVentaSerializer, RegistroTemporalSerializer, CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
 )
+
 # -------------------------------
 # User
 # -------------------------------
@@ -47,11 +48,28 @@ class InformacionUsuarioListCreateView(generics.ListCreateAPIView):
     serializer_class = InformacionUsuarioSerializer
 
 class InformacionUsuarioDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+    
     queryset = InformacionUsuario.objects.all()
     serializer_class = InformacionUsuarioSerializer
 
 # -------------------------------
-# AsignarGrupo
+# Imagenes de usuario
+# -------------------------------
+class ImagenesUsuarioListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+
+    queryset = ImagenesUsuario.objects.all()
+    serializer_class = ImagenesUsuarioSerializer
+
+class ImagenesUsuarioDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+    
+    queryset = ImagenesUsuario.objects.all()
+    serializer_class = ImagenesUsuarioSerializer
+
+# -------------------------------
+# Asignar relacion grupo usuario
 # -------------------------------
 class AsignarGrupoView(generics.GenericAPIView):
     permission_classes = [AllowAny]
@@ -62,6 +80,21 @@ class AsignarGrupoView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response({"message": f"Grupo asignado a {user.username}"}, status=status.HTTP_200_OK)
+
+
+# -------------------------------
+# Eliminar relacion grupo usuario
+# -------------------------------
+class EliminarUsuarioView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = EliminarUsuarioSerializer
+
+    def delete(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        username = serializer.save()
+        return Response({"message": f"El Usuario {username} eliminado correctamente"}, status=status.HTTP_200_OK)
+
 
 # -------------------------------
 # Grupos
@@ -82,10 +115,14 @@ class GruposListCreateView(generics.ListCreateAPIView):
 # Categoria
 # -------------------------------
 class CategoriaListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+
     queryset = Categoria.objects.all()
     serializer_class = CategoriaSerializer
 
 class CategoriaDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+
     queryset = Categoria.objects.all()
     serializer_class = CategoriaSerializer
 
@@ -119,6 +156,8 @@ class ConsultasDetailView(generics.RetrieveUpdateDestroyAPIView):
 # Producto
 # -------------------------------
 class ProductoListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+    
     queryset = Producto.objects.all()
     serializer_class = ProductoSerializer
 
@@ -169,7 +208,6 @@ class DetalleVentaListCreateView(generics.ListCreateAPIView):
 class DetalleVentaDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = DetalleVenta.objects.all()
     serializer_class = DetalleVentaSerializer
-
 
 # -------------------------------
 # Registro temporal
@@ -414,28 +452,6 @@ class ValidarCodigoView(generics.GenericAPIView):
         )
 
 # -------------------------------
-# Vista del access_token
-# -------------------------------
-class CustomTokenObtainPairView(TokenObtainPairView):
-    def post(self, request, *args, **kwargs):
-        serializer = CustomTokenObtainPairSerializer(data=request.data)
-        
-        if serializer.is_valid():
-            return Response(serializer.validated_data, status=status.HTTP_200_OK)
-        
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class UserDataView(APIView):
-    authentication_classes = [JWTAllowInactiveAuthentication]
-    permission_classes = [IsAuthenticatedAllowInactive]
-
-    def get(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
-
-# -------------------------------
 # Enviar contraseña temporal
 # -------------------------------
 class EnviarClaveTemporalView(generics.GenericAPIView):
@@ -566,3 +582,131 @@ class EnviarCodigoCambioCorreoView(generics.GenericAPIView):
             "mensaje": f"Correo enviado para cambiar la cuenta de {name}.",
             "wait_time": wait_time
         })
+
+
+# -------------------------------
+# Crear un usuario completamente
+# -------------------------------
+class CrearUsuarioView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        username = request.data.get("username")
+        first_name = request.data.get("first_name")
+        last_name = request.data.get("last_name")
+        email = request.data.get("email")
+        telefono = request.data.get("telefono", "")
+        direccion = request.data.get("direccion", "")
+        group_id = request.data.get("group_id")  # ID del grupo a asignar
+
+        # Validar campos obligatorios
+        if not username or not first_name or not last_name or not email or not group_id:
+            return Response(
+                {"error": "username, first_name, last_name email y group_id son obligatorios."},
+                status=400
+            )
+
+        # Verificar duplicados
+        if User.objects.filter(email=email).exists():
+            return Response({"error": "Ya existe un usuario con ese correo."}, status=400)
+        if User.objects.filter(username=username).exists():
+            return Response({"error": "El nombre de usuario ya está en uso."}, status=400)
+
+        # Generar contraseña aleatoria de 6 caracteres
+        password = get_random_string(length=6)
+
+        # Crear usuario
+        user = User.objects.create_user(
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            password=password
+        )
+
+        # Crear información extra
+        info_usuario = InformacionUsuario.objects.create(
+            user=user,
+            telefono=telefono,
+            direccion=direccion
+        )
+
+        # Asignar grupo
+        try:
+            grupo = Group.objects.get(id=group_id)
+            user.groups.add(grupo)
+        except Group.DoesNotExist:
+            user.delete()  # rollback
+            return Response({"error": "El grupo no existe."}, status=404)
+
+        # Enviar correo
+        asunto = "Tu cuenta ha sido creada"
+        cuerpo = f"""
+        Hola {first_name},
+
+        Tu cuenta ha sido creada con éxito en el sistema.
+
+        Tus credenciales son:
+        Usuario: {user.username}
+        Contraseña: {password}
+
+        Recuerda que puedes actualizar tu información de perfil y cambiar tu contraseña.
+
+        Saludos,
+        El equipo de soporte
+        """.strip()
+
+        send_mail(
+            subject=asunto,
+            message=cuerpo,
+            from_email=None,  # Configura DEFAULT_FROM_EMAIL en settings.py
+            recipient_list=[email],
+            fail_silently=False
+        )
+
+        # Respuesta al frontend
+        return Response(
+            {
+                "id": user.id,
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "telefono": info_usuario.telefono,
+                "direccion": info_usuario.direccion,
+                "grupo": grupo.name,
+                "mensaje": "Usuario creado, información registrada y correo enviado."
+            },
+            status=201
+        )
+
+# -------------------------------
+# Vista del access_token
+# -------------------------------
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        serializer = CustomTokenObtainPairSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserDataView(APIView):
+
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
+
+
+class CustomTokenRefreshView(APIView):
+    authentication_classes = []  # Desactiva autenticación obligatoria
+    permission_classes = []      # Desactiva permisos obligatorios
+
+    def post(self, request, *args, **kwargs):
+        serializer = CustomTokenRefreshSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+

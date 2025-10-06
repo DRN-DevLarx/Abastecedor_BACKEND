@@ -11,8 +11,18 @@ urlpatterns = [
     path('informacionUsuarios/', views.InformacionUsuarioListCreateView.as_view(), name='informacionusuario-list-create'),
     path('informacionUsuarios/<int:pk>/', views.InformacionUsuarioDetailView.as_view(), name='informacionusuario-detail'),
 
+    # InformacionUsuario
+    path('imagenesUsuarios/', views.ImagenesUsuarioListCreateView.as_view(), name='imagenesusuario-list-create'),
+    path('imagenesUsuarios/<int:pk>/', views.ImagenesUsuarioDetailView.as_view(), name='imagenesusuario-detail'),
+
     #Asignar grupo
     path('asignarGrupo/', views.AsignarGrupoView.as_view(), name='asignargrupo'),
+
+    #Eliminar usuario
+    path('eliminarUsuario/', views.EliminarUsuarioView.as_view(), name='eliminar-usuario'),
+    
+    #Crear usuario
+    path('crearUsuario/', views.CrearUsuarioView.as_view(), name='crearUsuario'),
 
     #Grupos
     path('grupos/', views.GruposListCreateView.as_view(), name='grupo-list-create'),
@@ -60,7 +70,8 @@ urlpatterns = [
     path('restablecer/', views.EnviarClaveTemporalView.as_view(), name='restablecer'),
     path('VcambioCorreo/', views.EnviarCodigoCambioCorreoView.as_view(), name='VcambioCorreo'),
     
+
     path('token/', views.CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/refresh/', views.CustomTokenRefreshView.as_view(), name='token_refresh'),
     path("user-data/", views.UserDataView.as_view(), name="user-data"),
 ]

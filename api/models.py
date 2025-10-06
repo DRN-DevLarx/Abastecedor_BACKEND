@@ -20,6 +20,7 @@ class Categoria(models.Model):
 class Proveedor(models.Model):
     nombre = models.CharField(max_length=200)
     telefono = models.CharField(max_length=20, blank=True, null=True)
+    correo = models.EmailField(blank=True, null=True)
     direccion = models.TextField(blank=True, null=True)
 
     def __str__(self):
@@ -29,42 +30,59 @@ class Proveedor(models.Model):
 # Consultas
 # -------------------------------
 class Consultas(models.Model):
+    user = models.CharField(max_length=10, blank=True, null=True)
     nombre_completo = models.CharField(max_length=50)
     correo = models.CharField(max_length=100)
     asunto = models.CharField(max_length=50,)
     mensaje = models.TextField()
+    fecha = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.mensaje
+        return f"{self.nombre_completo} - {self.mensaje}"
 
 # -------------------------------
 # Producto
 # -------------------------------
 class Producto(models.Model):
-    nombre = models.CharField(max_length=200)
-    descripcion = models.TextField(blank=True, null=True)
-    imagen = models.TextField(blank=True, null=True)
-    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE)
-    proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True)
+    codigo = models.CharField(blank=True, null=True, max_length=15)
+    nombre = models.CharField(max_length=100)
     precio = models.DecimalField(max_digits=8, decimal_places=2)
     stock = models.PositiveIntegerField(default=0)
+    calificacion = models.PositiveIntegerField(default=0)
+    descripcion = models.TextField(blank=True, null=True)
+    referenciaIMG = models.TextField(blank=True, null=True)
+    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, null=True, blank=True)
+    proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return self.nombre
+
 
 # -------------------------------
 # Información adicional de Usuario
 # -------------------------------
 class InformacionUsuario(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Relación 1 a 1
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     telefono = models.CharField(max_length=20, blank=True, null=True)
     direccion = models.TextField(blank=True, null=True)
     referenciaIMG = models.TextField(blank=True, null=True)
-    notificaciones = models.CharField(default="false", max_length=10)
+    notificaciones = models.BooleanField(default=False)
     tema = models.CharField(default="normal", max_length=10)
 
     def __str__(self):
         return f"{self.user} - {self.telefono}"
+
+
+# -------------------------------
+# Imagenes de Usuario
+# -------------------------------
+class ImagenesUsuario(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    imagen = models.TextField(blank=True, null=True)
+    fechaSubida = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.user
 
 # -------------------------------
 # Pedido
