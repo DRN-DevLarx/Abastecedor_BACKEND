@@ -58,6 +58,7 @@ class Producto(models.Model):
         return self.nombre
 
 
+
 # -------------------------------
 # Información adicional de Usuario
 # -------------------------------
