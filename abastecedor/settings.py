@@ -4,7 +4,6 @@ pymysql.install_as_MySQLdb()
 
 from pathlib import Path
 from datetime import timedelta
-from pathlib import Path
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
