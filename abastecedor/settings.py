@@ -1,29 +1,16 @@
 import os
-import pymysql
 from decouple import config
-
 from pathlib import Path
 from datetime import timedelta
 # from dotenv import load_dotenv
 # load_dotenv(BASE_DIR / '.env')
 
-pymysql.install_as_MySQLdb()
+
+SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG', default=False, cast=bool)
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-x17#h^q_n!y4v&v6%ff7bl)khjle(&a3b5oi(5k9=^s8dyk3^5'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -101,10 +88,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'abastecedor.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.mysql',
@@ -122,27 +105,10 @@ DATABASES = {
         'NAME': config('DB_NAME'),
         'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST', default='127.0.0.1'),
+        'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT', default='3306'),
     }
 }
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': os.getenv('DB_NAME'),
-#         'USER': os.getenv('DB_USER'),
-#         'PASSWORD': os.getenv('DB_PASSWORD'),
-#         'HOST': os.getenv('DB_HOST'),
-#         'PORT': os.getenv('DB_PORT'),
-#         'OPTIONS': {
-#             'ssl': {
-#                 'ssl-mode': 'REQUIRED'
-#             }
-#         }
-#     }
-# }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
