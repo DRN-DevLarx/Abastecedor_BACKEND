@@ -2,15 +2,18 @@ import os
 from decouple import config
 from pathlib import Path
 from datetime import timedelta
+import pymysql
+pymysql.install_as_MySQLdb()
+
 # from dotenv import load_dotenv
 # load_dotenv(BASE_DIR / '.env')
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 ALLOWED_HOSTS = ["*"]
 
