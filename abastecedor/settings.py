@@ -5,18 +5,12 @@ from datetime import timedelta
 import pymysql
 pymysql.install_as_MySQLdb()
 
-# from dotenv import load_dotenv
-# load_dotenv(BASE_DIR / '.env')
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-
-
 ALLOWED_HOSTS = ["*"]
-
 
 # Application definition
 
@@ -121,8 +115,11 @@ DATABASES = {
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT'),
         'OPTIONS': {
+            'ssl': {
+                'ca': str(BASE_DIR / 'certs' / 'ca.pem'),  # Ruta al certificado
+            },
             'charset': 'utf8mb4',
-            'connect_timeout': 60,
+            'connect_timeout': 30,
         }
     }
 }
