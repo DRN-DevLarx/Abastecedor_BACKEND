@@ -21,17 +21,5 @@ COPY . .
 # Expone el puerto
 EXPOSE 8080
 
-# Crea el script de inicio
-RUN echo '#!/bin/bash\n\
-set -e\n\
-echo "Running migrations..."\n\
-python manage.py migrate --noinput\n\
-echo "Collecting static files..."\n\
-python manage.py collectstatic --noinput --clear\n\
-echo "Starting gunicorn..."\n\
-exec gunicorn abastecedor.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --log-level info' > /start.sh
-
-RUN chmod +x /start.sh
-
-# Ejecuta el script de inicio
-CMD ["/start.sh"]
+# Comando para ejecutar la aplicación
+CMD gunicorn abastecedor.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
