@@ -112,6 +112,8 @@ WSGI_APPLICATION = 'abastecedor.wsgi.application'
 #     }
 # }
 
+from decouple import config
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -120,6 +122,11 @@ DATABASES = {
         'PASSWORD': config('DB_PASSWORD'),
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT', default='3306'),
+        'OPTIONS': {
+            'ssl_mode': config('DB_SSL_MODE', default='REQUIRED'),
+            'charset': 'utf8mb4',
+            'connect_timeout': 10,
+        }
     }
 }
 
