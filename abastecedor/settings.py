@@ -11,7 +11,7 @@ pymysql.install_as_MySQLdb()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 
 
@@ -112,8 +112,6 @@ WSGI_APPLICATION = 'abastecedor.wsgi.application'
 #     }
 # }
 
-from decouple import config
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -123,7 +121,9 @@ DATABASES = {
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT', default='3306'),
         'OPTIONS': {
-            'ssl_mode': config('DB_SSL_MODE', default='REQUIRED'),
+            'ssl': {
+                'ssl_mode': config('DB_SSL_MODE', default='REQUIRED'),
+            },
             'charset': 'utf8mb4',
             'connect_timeout': 10,
         }
