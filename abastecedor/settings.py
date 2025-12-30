@@ -121,9 +121,7 @@ DATABASES = {
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT', default='3306'),
         'OPTIONS': {
-            'ssl': {
-                'ssl_mode': config('DB_SSL_MODE', default='REQUIRED'),
-            },
+            'ssl': {'ca': None},  # Esta es la forma correcta para pymysql
             'charset': 'utf8mb4',
             'connect_timeout': 10,
         }
