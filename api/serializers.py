@@ -3,7 +3,7 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 from django.contrib.auth.models import User, Group
 from .models import (
-    Categoria, Proveedor, Consultas, Producto, InformacionUsuario, ImagenesUsuario,
+    Categoria, Proveedor, Consultas, Producto, ImagenesProducto, InformacionUsuario, ImagenesUsuario,
     Pedido, DetallePedido, Venta, DetalleVenta, RegistroTemporal
 )
 
@@ -140,6 +140,14 @@ class ConsultasSerializer(serializers.ModelSerializer):
 class ProductoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Producto
+        fields = '__all__'
+
+# -------------------------------
+# Imagenes de Produco
+# -------------------------------
+class ImagenesProductoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImagenesProducto
         fields = '__all__'
 
 # -------------------------------

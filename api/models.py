@@ -57,7 +57,16 @@ class Producto(models.Model):
     def __str__(self):
         return self.nombre
 
+# -------------------------------
+# Imagenes de producto
+# -------------------------------
+class ImagenesProducto(models.Model):
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    imagen = models.TextField(blank=True, null=True)
+    fechaSubida = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return self.producto
 
 # -------------------------------
 # Información adicional de Usuario
@@ -72,7 +81,6 @@ class InformacionUsuario(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.telefono}"
-
 
 # -------------------------------
 # Imagenes de Usuario

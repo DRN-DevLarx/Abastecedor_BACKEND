@@ -12,14 +12,17 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from .permission import IsAuthenticatedAllowInactive
 from .authentication import JWTAllowInactiveAuthentication
 
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+
 from django.contrib.auth.models import User, Group
+
 from .models import (
-    Categoria, Proveedor, Consultas, Producto, InformacionUsuario, ImagenesUsuario,
+    Categoria, Proveedor, Consultas, Producto, ImagenesProducto, InformacionUsuario, ImagenesUsuario,
     Pedido, DetallePedido, Venta, DetalleVenta, CodigoVerificacion, RegistroTemporal
 )
 from .serializers import (
     UserSerializer, InformacionUsuarioSerializer, ImagenesUsuarioSerializer, AsignarGrupoSerializer, EliminarUsuarioSerializer, GruposSerializer, CategoriaSerializer, 
-    ProveedorSerializer, ConsultasSerializer, ProductoSerializer, PedidoSerializer, DetallePedidoSerializer, VentaSerializer, 
+    ProveedorSerializer, ConsultasSerializer, ProductoSerializer, ImagenesProductoSerializer, PedidoSerializer, DetallePedidoSerializer, VentaSerializer, 
     DetalleVentaSerializer, RegistroTemporalSerializer, CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
 )
 
@@ -81,7 +84,6 @@ class AsignarGrupoView(generics.GenericAPIView):
         user = serializer.save()
         return Response({"message": f"Grupo asignado a {user.username}"}, status=status.HTTP_200_OK)
 
-
 # -------------------------------
 # Eliminar relacion grupo usuario
 # -------------------------------
@@ -95,7 +97,6 @@ class EliminarUsuarioView(generics.GenericAPIView):
         username = serializer.save()
         return Response({"message": f"El Usuario {username} eliminado correctamente"}, status=status.HTTP_200_OK)
 
-
 # -------------------------------
 # Grupos
 # -------------------------------
@@ -104,12 +105,6 @@ class GruposListCreateView(generics.ListCreateAPIView):
 
     queryset = Group.objects.all()
     serializer_class = GruposSerializer
-
-# class GruposDetailView(generics.RetrieveUpdateDestroyAPIView):
-#     permission_classes = [AllowAny]
-    
-#     queryset = Group.objects.all()
-#     serializer_class = GruposSerializer
 
 # -------------------------------
 # Categoria
@@ -161,9 +156,44 @@ class ProductoListCreateView(generics.ListCreateAPIView):
     queryset = Producto.objects.all()
     serializer_class = ProductoSerializer
 
-class ProductoDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Producto.objects.all()
-    serializer_class = ProductoSerializer
+class ProductoDetailView(APIView):
+    # permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
+
+    def get(self, request, id):
+        try:
+            producto = Producto.objects.get(id=id)
+        except Producto.DoesNotExist:
+            return Response(
+                {"detail": "Producto no existe"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        user = request.user
+
+        # ¿Es admin?
+        es_admin = user.groups.filter(name="admin").exists()
+
+        # Si es cliente y el producto no cumple condiciones → BLOQUEAR
+        if not es_admin:
+            if producto.stock <= 0 or not producto.activo:
+                return Response(
+                    {"detail": "No tienes permiso para ver este producto"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        serializer = ProductoSerializer(producto)
+        return Response(serializer.data)
+
+# -------------------------------
+# Imagenes de Producto
+# -------------------------------
+class ImagenesProductoListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+
+    queryset = ImagenesProducto.objects.all()
+    serializer_class = ImagenesProductoSerializer
+
 
 # -------------------------------
 # Pedido

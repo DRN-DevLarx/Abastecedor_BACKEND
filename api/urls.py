@@ -43,6 +43,9 @@ urlpatterns = [
     path('productos/', views.ProductoListCreateView.as_view(), name='producto-list-create'),
     path('productos/<int:pk>/', views.ProductoDetailView.as_view(), name='producto-detail'),
 
+    # Imagenes de Producto
+    path('imagenesProductos/', views.ImagenesProductoListCreateView.as_view(), name='imagenesProducto-list-create'),
+
     # Pedido
     path('pedidos/', views.PedidoListCreateView.as_view(), name='pedido-list-create'),
     path('pedidos/<int:pk>/', views.PedidoDetailView.as_view(), name='pedido-detail'),
