@@ -8,7 +8,7 @@ pymysql.install_as_MySQLdb()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = ["*"]
 
@@ -95,34 +95,34 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'abastecedor.wsgi.application'
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'abastecedor',
-#         'USER': 'root',
-#         'PASSWORD':'',
-#         'HOST': '127.0.0.1',
-#         'PORT':'3306'
-#     }
-# }
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT'),
-        'OPTIONS': {
-            'ssl': {
-                'ca': str(BASE_DIR / 'certs' / 'ca.pem'),  # Ruta al certificado
-            },
-            'charset': 'utf8mb4',
-            'connect_timeout': 30,
-        }
+        'NAME': 'abastecedor',
+        'USER': 'root',
+        'PASSWORD':'',
+        'HOST': '127.0.0.1',
+        'PORT':'3306'
     }
 }
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': config('DB_NAME'),
+#         'USER': config('DB_USER'),
+#         'PASSWORD': config('DB_PASSWORD'),
+#         'HOST': config('DB_HOST'),
+#         'PORT': config('DB_PORT'),
+#         'OPTIONS': {
+#             'ssl': {
+#                 'ca': str(BASE_DIR / 'certs' / 'ca.pem'),  # Ruta al certificado
+#             },
+#             'charset': 'utf8mb4',
+#             'connect_timeout': 30,
+#         }
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
