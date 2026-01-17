@@ -40,11 +40,21 @@ urlpatterns = [
     path('consultas/<int:pk>/', views.ConsultasDetailView.as_view(), name='consulta-detail'),
 
     # Producto
-    path('productos/', views.ProductoListCreateView.as_view(), name='producto-list-create'),
-    path('productos/<int:pk>/', views.ProductoDetailView.as_view(), name='producto-detail'),
+    path('productos/', views.ProductoPublicListView.as_view(), name='producto-list-create'),
+    path('productosAdmin/', views.ProductoAdminListView.as_view(), name='producto-admin-list-create'),
+
+    path('productos/<int:id>/', views.ProductoPublicDetailView.as_view(), name='producto-detail'),
+    path('productosAdmin/<int:id>/', views.ProductoAdminDetailView.as_view(), name='producto-admin-detail'),
 
     # Imagenes de Producto
-    path('imagenesProductos/', views.ImagenesProductoListCreateView.as_view(), name='imagenesProducto-list-create'),
+    path('imagenesProducto/', views.ImagenesProductoView.as_view(), name='imagenesProducto-list-create'),
+    # path('imagenesProducto/<int:id>/', views.ImagenesProductoListView.as_view(), name='imagenesProducto-list-create'),
+    path('imagenesProducto/<int:id>/', views.ImagenesProductoView.as_view(), name='imagenes-producto-update'),
+
+    # Carritos
+    path('carritos/', views.CarritosUsuarioView.as_view(), name='carritos-list'),
+    path('carritos/<int:id>/', views.CarritoDetailView.as_view(), name='carritos-detail'),
+    path('carritoActivo/', views.CarritoActivoView.as_view(), name='carrito-activo'),
 
     # Pedido
     path('pedidos/', views.PedidoListCreateView.as_view(), name='pedido-list-create'),
@@ -54,16 +64,20 @@ urlpatterns = [
     path('detallePedidos/', views.DetallePedidoListCreateView.as_view(), name='detallepedido-list-create'),
     path('detallePedidos/<int:pk>/', views.DetallePedidoDetailView.as_view(), name='detallepedido-detail'),
 
-    # Venta
-    path('ventas/', views.VentaListCreateView.as_view(), name='venta-list-create'),
-    path('ventas/<int:pk>/', views.VentaDetailView.as_view(), name='venta-detail'),
+    # Imagenes Carrusel
+    path('imagenesCarrusel/', views.ImagenesCarruselListCreateView.as_view(), name='imagenesCarrusel-list-create'),
+    path('imagenesCarrusel/<int:pk>/', views.ImagenesCarruselDetailView.as_view(), name='imagenesCarrusel-detail'),
 
-    # DetalleVenta
-    path('detalleVentas/', views.DetalleVentaListCreateView.as_view(), name='detalleventa-list-create'),
-    path('detalleVentas/<int:pk>/', views.DetalleVentaDetailView.as_view(), name='detalleventa-detail'),
+    # Contenido Estatico
+    path('contenidoEstatico/', views.ContenidoEstaticoListCreateView.as_view(), name='contenidoEstatico-list-create'),
+    path('contenidoEstatico/<int:pk>/', views.ContenidoEstaticoDetailView.as_view(), name='contenidoEstatico-detail'),
+
+    # Comentarios
+    path('comentarios/', views.ComentariosListCreateView.as_view(), name='comentarios-list-create'),
+    path('comentarios/<int:pk>/', views.ComentariosDetailView.as_view(), name='comentarios-detail'),
 
     # RegistroTemporal
-    path('registroTemporal/', views.RegistroTemporalListCreateView.as_view(), name='detalleventa-list-create'),
+    path('registroTemporal/', views.RegistroTemporalListCreateView.as_view(), name='registro-list-create'),
     path('registroTemporal/<int:pk>/', views.RegistroTemporalDetailView.as_view(), name='registroTemporal-detail'),
 
     # Código de verificación
