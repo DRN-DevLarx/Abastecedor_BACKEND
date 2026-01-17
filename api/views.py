@@ -8,23 +8,29 @@ from rest_framework.permissions import AllowAny
 from django.utils.crypto import get_random_string
 from django.utils import timezone
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django.shortcuts import get_object_or_404
 
 from .permission import IsAuthenticatedAllowInactive
 from .authentication import JWTAllowInactiveAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from django.contrib.auth.models import User, Group
 
 from .models import (
-    Categoria, Proveedor, Consultas, Producto, ImagenesProducto, InformacionUsuario, ImagenesUsuario,
-    Pedido, DetallePedido, Venta, DetalleVenta, CodigoVerificacion, RegistroTemporal
+    Categoria, Proveedor, Consultas, Producto, ImagenesProducto, InformacionUsuario, ImagenesUsuario, Carrito,
+    Pedido, DetallePedido, CodigoVerificacion, RegistroTemporal,
+    ImagenesCarrusel, ContenidoEstatico, Comentarios
 )
 from .serializers import (
     UserSerializer, InformacionUsuarioSerializer, ImagenesUsuarioSerializer, AsignarGrupoSerializer, EliminarUsuarioSerializer, GruposSerializer, CategoriaSerializer, 
-    ProveedorSerializer, ConsultasSerializer, ProductoSerializer, ImagenesProductoSerializer, PedidoSerializer, DetallePedidoSerializer, VentaSerializer, 
-    DetalleVentaSerializer, RegistroTemporalSerializer, CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
+    ProveedorSerializer, ConsultasSerializer, ProductoSerializer, ImagenesProductoSerializer, CarritoSerializer, PedidoSerializer, DetallePedidoSerializer, 
+    RegistroTemporalSerializer, CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
 )
+
+# Serializers for newly added models
+from .serializers import ImagenesCarruselSerializer, ContenidoEstaticoSerializer, ComentariosSerializer
 
 # -------------------------------
 # User
@@ -148,16 +154,53 @@ class ConsultasDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ConsultasSerializer
 
 # -------------------------------
-# Producto
+# Productos Públicos
 # -------------------------------
-class ProductoListCreateView(generics.ListCreateAPIView):
+class ProductoPublicListView(generics.ListAPIView):
     permission_classes = [AllowAny]
+    serializer_class = ProductoSerializer
+
+    def get_queryset(self):
+        return Producto.objects.filter(
+            stock__gt=0,
+            # activo=True
+        )
+
+# -------------------------------
+# Todos los Productos
+# -------------------------------
+class ProductoAdminListView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny] 
     
     queryset = Producto.objects.all()
     serializer_class = ProductoSerializer
 
-class ProductoDetailView(APIView):
-    # permission_classes = [IsAuthenticated]
+# -------------------------------
+# Producto Público con id
+# -------------------------------
+class ProductoPublicDetailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, id):
+        try:
+            producto = Producto.objects.get(
+                id=id,
+                stock__gt=0,
+                # activo=True
+            )
+        except Producto.DoesNotExist:
+            return Response(
+                {"detail": "Producto no existe"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ProductoSerializer(producto)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+# -------------------------------
+# Producto Admin con id
+# -------------------------------
+class ProductoAdminDetailView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, id):
@@ -169,31 +212,258 @@ class ProductoDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        user = request.user
-
-        # ¿Es admin?
-        es_admin = user.groups.filter(name="admin").exists()
-
-        # Si es cliente y el producto no cumple condiciones → BLOQUEAR
-        if not es_admin:
-            if producto.stock <= 0 or not producto.activo:
-                return Response(
-                    {"detail": "No tienes permiso para ver este producto"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
         serializer = ProductoSerializer(producto)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request, id):
+        try:
+            producto = Producto.objects.get(id=id)
+        except Producto.DoesNotExist:
+            return Response(
+                {"detail": "Producto no existe"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ProductoSerializer(
+            producto,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 # -------------------------------
-# Imagenes de Producto
+# Imagenes del Producto
 # -------------------------------
-class ImagenesProductoListCreateView(generics.ListCreateAPIView):
+# class ImagenesProductoDEVListView(generics.ListCreateAPIView):
+#     queryset = ImagenesProducto.objects.all()
+#     serializer_class = ImagenesProductoSerializer
+
+
+# class ImagenesProductoListView(generics.ListAPIView):
+#     permission_classes = [AllowAny]
+#     serializer_class = ImagenesProductoSerializer
+
+#     def get_queryset(self):
+#         producto_id = self.kwargs.get("id")
+#         return ImagenesProducto.objects.filter(producto_id=producto_id)
+
+
+
+
+class ImagenesProductoView(APIView):
     permission_classes = [AllowAny]
 
-    queryset = ImagenesProducto.objects.all()
-    serializer_class = ImagenesProductoSerializer
+    # 📄 Obtener imágenes de un producto
+    def get(self, request, id):
+        imagenes = ImagenesProducto.objects.filter(producto_id=id)
+        serializer = ImagenesProductoSerializer(imagenes, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # ➕ Agregar UNA imagen
+    def post(self, request):
+        serializer = ImagenesProductoSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(fechaSubida=datetime.now())
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # ❌ Eliminar UNA imagen por id
+    def delete(self, request, id):
+        imagen = get_object_or_404(ImagenesProducto, id=id)
+        imagen.delete()
+        return Response(
+            {"detail": "Imagen eliminada correctamente"},
+            status=status.HTTP_204_NO_CONTENT
+        )
+
+
+# -------------------------------
+# Imagenes Carrusel
+# -------------------------------
+class ImagenesCarruselListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+    queryset = ImagenesCarrusel.objects.all()
+    serializer_class = ImagenesCarruselSerializer
+
+
+class ImagenesCarruselDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+    queryset = ImagenesCarrusel.objects.all()
+    serializer_class = ImagenesCarruselSerializer
+
+
+# -------------------------------
+# Contenido Estatico
+# -------------------------------
+class ContenidoEstaticoListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+    queryset = ContenidoEstatico.objects.all()
+    serializer_class = ContenidoEstaticoSerializer
+
+
+class ContenidoEstaticoDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+    queryset = ContenidoEstatico.objects.all()
+    serializer_class = ContenidoEstaticoSerializer
+
+
+# -------------------------------
+# Comentarios
+# -------------------------------
+class ComentariosListCreateView(generics.ListCreateAPIView):
+    permission_classes = [AllowAny]
+    queryset = Comentarios.objects.all()
+    serializer_class = ComentariosSerializer
+
+
+class ComentariosDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+    queryset = Comentarios.objects.all()
+    serializer_class = ComentariosSerializer
+
+
+
+
+# class ImagenesProductoUpdateView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def patch(self, request, id):
+#         imagenes = ImagenesProducto.objects.filter(producto_id=id)
+
+#         if not imagenes.exists():
+#             return Response(
+#                 {"detail": "No hay imágenes para este producto"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         # eliminar anteriores (si aplica)
+#         imagenes.delete()
+
+#         # crear nuevas
+#         for img in request.data:
+#             ImagenesProducto.objects.create(
+#                 producto_id=id,
+#                 url=img["url"],
+#                 es_principal=img.get("es_principal", False)
+#             )
+
+#         return Response(
+#             {"detail": "Imágenes actualizadas correctamente"},
+#             status=status.HTTP_200_OK
+#         )
+
+
+# -------------------------------
+# Carrito
+# Uso: /api/carritos/?estado=COMPLETADO
+# -------------------------------
+class CarritosUsuarioView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Obtiene todos los carritos del usuario autenticado.
+        Query params opcionales:
+        - estado: filtra por estado (ACTIVO, PAGO, COMPLETADO, CANCELADO)
+        
+        Ejemplo: GET /api/carritos/?estado=COMPLETADO
+        """
+        estado = request.query_params.get("estado")
+
+        carritos = Carrito.objects.filter(usuario=request.user)
+
+        if estado:
+            carritos = carritos.filter(estado=estado.upper())
+
+        serializer = CarritoSerializer(carritos, many=True)
+        return Response(serializer.data)
+
+
+class CarritoDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, carrito_id):
+        """
+        Obtiene el detalle de un carrito específico del usuario.
+        Solo puede ver sus propios carritos.
+        
+        Ejemplo: GET /api/carritos/1/
+        """
+        carrito = get_object_or_404(
+            Carrito,
+            id=carrito_id,
+            usuario=request.user
+        )
+
+        serializer = CarritoSerializer(carrito)
+        return Response(serializer.data)
+
+    def patch(self, request, carrito_id):
+        """
+        Actualiza el estado de un carrito.
+        
+        Ejemplo: PATCH /api/carritos/1/
+        Body: {"estado": "COMPLETADO"}
+        """
+        carrito = get_object_or_404(
+            Carrito,
+            id=carrito_id,
+            usuario=request.user
+        )
+
+        estado = request.data.get("estado")
+        if estado and estado in dict(Carrito.ESTADOS):
+            carrito.estado = estado
+            carrito.save()
+            serializer = CarritoSerializer(carrito)
+            return Response(serializer.data)
+        
+        return Response(
+            {"error": "Estado inválido. Opciones: ACTIVO, PAGO, COMPLETADO, CANCELADO"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    def delete(self, request, carrito_id):
+        """
+        Elimina (o cancela) un carrito.
+        
+        Ejemplo: DELETE /api/carritos/1/
+        """
+        carrito = get_object_or_404(
+            Carrito,
+            id=carrito_id,
+            usuario=request.user
+        )
+
+        # Opción 1: Cancelar en lugar de eliminar
+        carrito.estado = "CANCELADO"
+        carrito.save()
+        
+        # Opción 2: Eliminar completamente (descomenta si prefieres esto)
+        # carrito.delete()
+        
+        return Response(
+            {"mensaje": "Carrito cancelado exitosamente"},
+            status=status.HTTP_200_OK
+        )
+
+class CarritoActivoView(APIView):
+    permission_classes = [IsAuthenticated]  # Requiere JWT válido
+
+    def get(self, request):
+        # request.user ya está autenticado por el JWT
+        carrito, created = Carrito.objects.get_or_create(
+            usuario=request.user,
+            estado="ACTIVO"
+        )
+        
+        serializer = CarritoSerializer(carrito)
+        return Response(serializer.data)
 
 # -------------------------------
 # Pedido
@@ -216,28 +486,6 @@ class DetallePedidoListCreateView(generics.ListCreateAPIView):
 class DetallePedidoDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = DetallePedido.objects.all()
     serializer_class = DetallePedidoSerializer
-
-# -------------------------------
-# Venta
-# -------------------------------
-class VentaListCreateView(generics.ListCreateAPIView):
-    queryset = Venta.objects.all()
-    serializer_class = VentaSerializer
-
-class VentaDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Venta.objects.all()
-    serializer_class = VentaSerializer
-
-# -------------------------------
-# DetalleVenta
-# -------------------------------
-class DetalleVentaListCreateView(generics.ListCreateAPIView):
-    queryset = DetalleVenta.objects.all()
-    serializer_class = DetalleVentaSerializer
-
-class DetalleVentaDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = DetalleVenta.objects.all()
-    serializer_class = DetalleVentaSerializer
 
 # -------------------------------
 # Registro temporal
