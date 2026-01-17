@@ -3,8 +3,9 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
 from django.contrib.auth.models import User, Group
 from .models import (
-    Categoria, Proveedor, Consultas, Producto, ImagenesProducto, InformacionUsuario, ImagenesUsuario,
-    Pedido, DetallePedido, Venta, DetalleVenta, RegistroTemporal
+    Categoria, Proveedor, Consultas, Producto, ImagenesProducto, InformacionUsuario, ImagenesUsuario, Carrito, DetalleCarrito,
+    Pedido, DetallePedido, RegistroTemporal,
+    ImagenesCarrusel, ContenidoEstatico, Comentarios
 )
 
 # -------------------------------
@@ -135,6 +136,30 @@ class ConsultasSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 # -------------------------------
+# Imagenes Carrusel
+# -------------------------------
+class ImagenesCarruselSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImagenesCarrusel
+        fields = '__all__'
+
+# -------------------------------
+# Contenido Estatico
+# -------------------------------
+class ContenidoEstaticoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContenidoEstatico
+        fields = '__all__'
+
+# -------------------------------
+# Comentarios
+# -------------------------------
+class ComentariosSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comentarios
+        fields = '__all__'
+
+# -------------------------------
 # Producto
 # -------------------------------
 class ProductoSerializer(serializers.ModelSerializer):
@@ -150,6 +175,53 @@ class ImagenesProductoSerializer(serializers.ModelSerializer):
         model = ImagenesProducto
         fields = '__all__'
 
+
+class DetalleCarritoSerializer(serializers.ModelSerializer):
+    producto_nombre = serializers.ReadOnlyField(source="producto.nombre")
+    producto_id = serializers.PrimaryKeyRelatedField(
+        queryset=Producto.objects.all(),
+        source="producto"
+    )
+
+    class Meta:
+        model = DetalleCarrito
+        fields = "__all__"
+
+        read_only_fields = ["precio_unitario", "subtotal"]
+
+    def create(self, validated_data):
+        producto = validated_data["producto"]
+        cantidad = validated_data["cantidad"]
+        carrito = self.context["carrito"]
+
+        detalle, creado = DetalleCarrito.objects.get_or_create(
+            carrito=carrito,
+            producto=producto,
+            defaults={
+                "cantidad": cantidad,
+                "precio_unitario": producto.precio,
+            }
+        )
+
+        if not creado:
+            detalle.cantidad += cantidad
+
+        detalle.precio_unitario = producto.precio
+        detalle.save()
+        carrito.recalcular_totales()
+        return detalle
+
+
+class CarritoSerializer(serializers.ModelSerializer):
+    items = DetalleCarritoSerializer(many=True, read_only=True)
+    usuario = serializers.ReadOnlyField(source="usuario.username")
+
+    class Meta:
+        model = Carrito
+        fields = "__all__"
+        read_only_fields = ["subtotal", "total", "fecha_creacion", "fecha_actualizacion"]
+
+
 # -------------------------------
 # Pedido y DetallePedido
 # -------------------------------
@@ -164,22 +236,6 @@ class PedidoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pedido
         fields = '__all__'
-
-# -------------------------------
-# Venta y DetalleVenta
-# -------------------------------
-class DetalleVentaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = DetalleVenta
-        fields = '__all__'
-
-class VentaSerializer(serializers.ModelSerializer):
-    detalleventa_set = DetalleVentaSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Venta
-        fields = '__all__'
-
 
 # -------------------------------
 # Datos de Registro temporal
