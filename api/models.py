@@ -169,11 +169,12 @@ class Carrito(models.Model):
 
 
 class DetalleCarrito(models.Model):
-    carrito = models.ForeignKey(Carrito, on_delete=models.CASCADE, related_name="items")
+    carrito = models.ForeignKey(Carrito,on_delete=models.CASCADE, related_name="items")
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField()
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    seleccionado = models.BooleanField(default=True)
 
     class Meta:
         unique_together = ("carrito", "producto")
@@ -183,7 +184,7 @@ class DetalleCarrito(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.producto.nombre} x {self.cantidad} x {self.subtotal}"
+        return f"[{self.seleccionado}] {self.producto.nombre}"
 
 
 # -------------------------------
