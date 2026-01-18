@@ -175,18 +175,40 @@ class ImagenesProductoSerializer(serializers.ModelSerializer):
         model = ImagenesProducto
         fields = '__all__'
 
+class ProductoMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Producto
+        fields = (
+            "id",
+            "codigo",
+            "nombre",
+            "precio",
+            "stock",
+            "referenciaIMG",
+        )
 
 class DetalleCarritoSerializer(serializers.ModelSerializer):
-    producto_nombre = serializers.ReadOnlyField(source="producto.nombre")
+    
+    # 🔹 para lectura
+    producto = ProductoMiniSerializer(read_only=True)
+
     producto_id = serializers.PrimaryKeyRelatedField(
         queryset=Producto.objects.all(),
-        source="producto"
+        source="producto",
+        write_only=True
     )
 
     class Meta:
         model = DetalleCarrito
-        fields = "__all__"
-
+        fields = [
+            "id",
+            "producto",          # 👈 objeto completo (read)
+            "producto_id",
+            "cantidad",
+            "precio_unitario",
+            "subtotal",
+            "seleccionado",
+        ]
         read_only_fields = ["precio_unitario", "subtotal"]
 
     def create(self, validated_data):
@@ -210,7 +232,6 @@ class DetalleCarritoSerializer(serializers.ModelSerializer):
         detalle.save()
         carrito.recalcular_totales()
         return detalle
-
 
 class CarritoSerializer(serializers.ModelSerializer):
     items = DetalleCarritoSerializer(many=True, read_only=True)
