@@ -25,7 +25,7 @@ from .models import (
 )
 from .serializers import (
     UserSerializer, InformacionUsuarioSerializer, ImagenesUsuarioSerializer, AsignarGrupoSerializer, EliminarUsuarioSerializer, GruposSerializer, CategoriaSerializer, 
-    ProveedorSerializer, ConsultasSerializer, ProductoSerializer, ImagenesProductoSerializer, CarritoSerializer, PedidoSerializer, DetallePedidoSerializer, 
+    ProveedorSerializer, ConsultasSerializer, ProductoSerializer, ImagenesProductoSerializer, CarritoSerializer, DetalleCarritoSerializer, PedidoSerializer, DetallePedidoSerializer, 
     RegistroTemporalSerializer, CustomTokenObtainPairSerializer, CustomTokenRefreshSerializer
 )
 
@@ -383,87 +383,76 @@ class CarritosUsuarioView(APIView):
         serializer = CarritoSerializer(carritos, many=True)
         return Response(serializer.data)
 
-
 class CarritoDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, carrito_id):
-        """
-        Obtiene el detalle de un carrito específico del usuario.
-        Solo puede ver sus propios carritos.
-        
-        Ejemplo: GET /api/carritos/1/
-        """
-        carrito = get_object_or_404(
-            Carrito,
-            id=carrito_id,
-            usuario=request.user
-        )
-
+        carrito = get_object_or_404(Carrito, id=carrito_id, usuario=request.user)
         serializer = CarritoSerializer(carrito)
         return Response(serializer.data)
 
     def patch(self, request, carrito_id):
-        """
-        Actualiza el estado de un carrito.
-        
-        Ejemplo: PATCH /api/carritos/1/
-        Body: {"estado": "COMPLETADO"}
-        """
-        carrito = get_object_or_404(
-            Carrito,
-            id=carrito_id,
-            usuario=request.user
-        )
-
+        carrito = get_object_or_404(Carrito, id=carrito_id, usuario=request.user)
         estado = request.data.get("estado")
         if estado and estado in dict(Carrito.ESTADOS):
             carrito.estado = estado
             carrito.save()
             serializer = CarritoSerializer(carrito)
             return Response(serializer.data)
-        
-        return Response(
-            {"error": "Estado inválido. Opciones: ACTIVO, PAGO, COMPLETADO, CANCELADO"},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"error": "Estado inválido. Opciones: ACTIVO, PAGO, COMPLETADO, CANCELADO"}, status=400)
 
     def delete(self, request, carrito_id):
-        """
-        Elimina (o cancela) un carrito.
-        
-        Ejemplo: DELETE /api/carritos/1/
-        """
-        carrito = get_object_or_404(
-            Carrito,
-            id=carrito_id,
-            usuario=request.user
-        )
-
-        # Opción 1: Cancelar en lugar de eliminar
+        carrito = get_object_or_404(Carrito, id=carrito_id, usuario=request.user)
         carrito.estado = "CANCELADO"
         carrito.save()
-        
-        # Opción 2: Eliminar completamente (descomenta si prefieres esto)
-        # carrito.delete()
-        
-        return Response(
-            {"mensaje": "Carrito cancelado exitosamente"},
-            status=status.HTTP_200_OK
-        )
+        return Response({"mensaje": "Carrito cancelado exitosamente"}, status=200)
 
 class CarritoActivoView(APIView):
-    permission_classes = [IsAuthenticated]  # Requiere JWT válido
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # request.user ya está autenticado por el JWT
-        carrito, created = Carrito.objects.get_or_create(
+        carrito, created = Carrito.objects.get_or_create(usuario=request.user, estado="ACTIVO")
+        serializer = CarritoSerializer(carrito)
+        return Response(serializer.data)
+
+class CarritoAgregarItemView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Agrega un producto al carrito ACTIVO del usuario.
+        Espera:
+        {
+          "producto_id": 1,
+          "cantidad": 2
+        }
+        """
+
+        # 1️⃣ Obtener o crear carrito activo
+        carrito, _ = Carrito.objects.get_or_create(
             usuario=request.user,
             estado="ACTIVO"
         )
-        
-        serializer = CarritoSerializer(carrito)
-        return Response(serializer.data)
+
+        # 2️⃣ Usar TU serializer (tal cual lo tienes)
+        serializer = DetalleCarritoSerializer(
+            data=request.data,
+            context={"carrito": carrito}
+        )
+
+        serializer.is_valid(raise_exception=True)
+        detalle = serializer.save()
+
+        # 3️⃣ Respuesta útil para frontend
+        return Response(
+            {
+                "message": "Producto agregado al carrito",
+                "items_count": carrito.items.count(),  # 👈 para carrito flotante
+                "carrito_id": carrito.id,
+                "item": DetalleCarritoSerializer(detalle).data
+            },
+            status=status.HTTP_201_CREATED
+        )
 
 # -------------------------------
 # Pedido
