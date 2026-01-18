@@ -55,6 +55,7 @@ urlpatterns = [
     path('carritos/', views.CarritosUsuarioView.as_view(), name='carritos-list'),
     path('carritos/<int:id>/', views.CarritoDetailView.as_view(), name='carritos-detail'),
     path('carritoActivo/', views.CarritoActivoView.as_view(), name='carrito-activo'),
+    path('agregarCartItem/', views.CarritoAgregarItemView.as_view(), name='create-item'),
 
     # Pedido
     path('pedidos/', views.PedidoListCreateView.as_view(), name='pedido-list-create'),
