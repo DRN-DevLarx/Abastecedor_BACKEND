@@ -2,14 +2,13 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
-import uuid
 
 
 # -------------------------------
 # Categoría de productos
 # -------------------------------
 class Categoria(models.Model):
-    nombre = models.CharField(max_length=100)
+    nombre = models.CharField(max_length=100, db_index=True)
 
     def __str__(self):
         return self.nombre
@@ -18,11 +17,11 @@ class Categoria(models.Model):
 # Proveedor
 # -------------------------------
 class Proveedor(models.Model):
-    nombre = models.CharField(max_length=200)
+    nombre = models.CharField(max_length=200, db_index=True)
     telefono = models.CharField(max_length=20, blank=True, null=True)
     telefono2 = models.CharField(max_length=20, blank=True, null=True)
     correo = models.EmailField(blank=True, null=True)
-    direccion = models.TextField(blank=True, null=True)
+    direccion = models.CharField(max_length=500, blank=True, null=True)
 
     def __str__(self):
         return self.nombre
@@ -31,9 +30,9 @@ class Proveedor(models.Model):
 # Imagenes del carrusel Inicial
 # -------------------------------
 class ImagenesCarrusel(models.Model):
-    subida_por = models.ForeignKey(User, on_delete=models.CASCADE)
-    estado = models.CharField(max_length=15, default="activa")
-    url = models.TextField()
+    subida_por = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    estado = models.CharField(max_length=15, default="activa", db_index=True)
+    url = models.CharField(max_length=500)
     fecha_subida = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -43,9 +42,9 @@ class ImagenesCarrusel(models.Model):
 # Contenido estatico de la pagina
 # -------------------------------
 class ContenidoEstatico(models.Model):
-    titulo = models.CharField(max_length=50)
-    contenido = models.TextField()
-    modificado_por = models.ForeignKey(User, on_delete=models.CASCADE)
+    titulo = models.CharField(max_length=50, db_index=True)
+    contenido = models.CharField(max_length=500, db_index=True)
+    modificado_por = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     actualizado_el = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -55,8 +54,8 @@ class ContenidoEstatico(models.Model):
 # Contenido estatico de la pagina
 # -------------------------------
 class Comentarios(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    comentario = models.TextField()
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    comentario = models.CharField(max_length=500, )
     publicado_el = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -70,7 +69,7 @@ class Consultas(models.Model):
     nombre_completo = models.CharField(max_length=50)
     correo = models.CharField(max_length=100)
     asunto = models.CharField(max_length=50,)
-    mensaje = models.TextField()
+    mensaje = models.CharField(max_length=500, )
     fecha = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -82,7 +81,7 @@ class Consultas(models.Model):
 # class Comentarios(models.Model):
 #     user = models.CharField(max_length=10, blank=True, null=True)
 #     mensaje = models.CharField(max_length=100)
-#     fecha = models.DateTimeField(auto_now_add=True)
+#     fecha = models.CharField(auto_now_add=True)
 
 #     def __str__(self):
 #         return f"{self.user} - {self.mensaje}"
@@ -92,13 +91,13 @@ class Consultas(models.Model):
 # Producto
 # -------------------------------
 class Producto(models.Model):
-    codigo = models.CharField(blank=True, null=True, max_length=15)
+    codigo = models.CharField(blank=True, null=True, max_length=15, db_index=True)
     nombre = models.CharField(max_length=100)
     precio = models.DecimalField(max_digits=8, decimal_places=2)
     stock = models.PositiveIntegerField(default=0)
     calificacion = models.PositiveIntegerField(default=0)
-    descripcion = models.TextField(blank=True, null=True)
-    referenciaIMG = models.TextField(blank=True, null=True)
+    descripcion = models.CharField(max_length=500, blank=True, null=True)
+    referenciaIMG = models.CharField(max_length=500, blank=True, null=True)
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE, null=True, blank=True)
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True)
 
@@ -109,8 +108,8 @@ class Producto(models.Model):
 # Imagenes de producto
 # -------------------------------
 class ImagenesProducto(models.Model):
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
-    imagen = models.TextField(blank=True, null=True)
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, db_index=True)
+    imagen = models.CharField(max_length=500, blank=True, null=True)
     fechaSubida = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -120,10 +119,10 @@ class ImagenesProducto(models.Model):
 # Información adicional de Usuario
 # -------------------------------
 class InformacionUsuario(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
     telefono = models.CharField(max_length=20, blank=True, null=True)
-    direccion = models.TextField(blank=True, null=True)
-    referenciaIMG = models.TextField(blank=True, null=True)
+    direccion = models.CharField(max_length=500, blank=True, null=True)
+    referenciaIMG = models.CharField(max_length=500, blank=True, null=True)
     notificaciones = models.BooleanField(default=False)
     tema = models.CharField(default="normal", max_length=10)
 
@@ -134,8 +133,8 @@ class InformacionUsuario(models.Model):
 # Imagenes de Usuario
 # -------------------------------
 class ImagenesUsuario(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    imagen = models.TextField(blank=True, null=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    imagen = models.CharField(max_length=500, blank=True, null=True)
     fechaSubida = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -151,8 +150,8 @@ class Carrito(models.Model):
         ("CANCELADO", "Cancelado"),
     )
 
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name="carritos")
-    estado = models.CharField(max_length=15, choices=ESTADOS, default="ACTIVO")
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name="carritos", db_index=True)
+    estado = models.CharField(max_length=15, choices=ESTADOS, default="ACTIVO", db_index=True)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
@@ -170,7 +169,7 @@ class Carrito(models.Model):
 
 class DetalleCarrito(models.Model):
     carrito = models.ForeignKey(Carrito,on_delete=models.CASCADE, related_name="items")
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, db_index=True)
     cantidad = models.PositiveIntegerField()
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
@@ -183,9 +182,8 @@ class DetalleCarrito(models.Model):
         self.subtotal = self.precio_unitario * self.cantidad
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f"[{self.seleccionado}] {self.producto.nombre}"
-
+        return self.producto.nombre
+        
 
 # -------------------------------
 # Pedido
@@ -201,13 +199,13 @@ class Pedido(models.Model):
         ("cancelado", "Cancelado"),
     ]
 
-    cliente = models.ForeignKey(User, on_delete=models.CASCADE)
-    fecha = models.DateTimeField(auto_now_add=True)
+    cliente = models.ForeignKey(User, on_delete=models.CASCADE, db_index=True)
+    fecha = models.DateTimeField(auto_now_add=True, db_index=True)
 
-    estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
+    estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente", db_index=True)
     pagado = models.BooleanField(default=False)
 
-    fecha_pago = models.DateTimeField(null=True, blank=True)
+    fecha_pago = models.CharField(max_length=500, null=True, blank=True)
     metodo_pago = models.CharField(max_length=50, null=True, blank=True)
 
     def total(self):
@@ -217,8 +215,8 @@ class Pedido(models.Model):
         return f"Pedido {self.id} - {self.cliente.username}"
 
 class DetallePedido(models.Model):
-    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE)
-    producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
+    pedido = models.ForeignKey(Pedido, on_delete=models.CASCADE, db_index=True)
+    producto = models.ForeignKey(Producto, on_delete=models.CASCADE, db_index=True)
     cantidad = models.PositiveIntegerField()
     precio_unitario = models.DecimalField(max_digits=8, decimal_places=2)
 
@@ -232,13 +230,13 @@ class DetallePedido(models.Model):
 # Codigo de Verificacion
 # -------------------------------
 class CodigoVerificacion(models.Model):
-    correo = models.EmailField()
-    codigo = models.CharField(max_length=6)
-    creado_en = models.DateTimeField(auto_now_add=True)   
-    expiracion = models.DateTimeField()                   
-    usado = models.BooleanField(default=False)            
-    intentos = models.IntegerField(default=0)             
-    proximo_reenvio = models.DateTimeField(default=timezone.now) 
+    correo = models.EmailField(db_index=True)
+    codigo = models.CharField(max_length=6, db_index=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+    expiracion = models.CharField(max_length=500, db_index=True)      
+    usado = models.BooleanField(default=False, db_index=True)
+    intentos = models.IntegerField(default=0)
+    proximo_reenvio = models.CharField(max_length=500, default=timezone.now)
 
     def __str__(self):
         return f"{self.correo} - {self.codigo} ({'usado' if self.usado else 'activo'})"
